@@ -128,7 +128,7 @@ def create_subdomain():
         cf_result = response.json()
 
         if cf_result.get('success'):
-            send_telegram_message(f"✅ *Subdomain Created*\n`{full_subdomain}` → `{content}`\nType: `{record_type}`\nProxy: `{proxied}`")
+            send_telegram_message(f"✅ *Subdomain Created*\n\n`Domain: {full_subdomain}`\n`Content: {content}`\nType: `{record_type}`\nProxy: `{proxied}`")
             return jsonify({
                 'success': True,
                 'message': 'Subdomain created successfully'
