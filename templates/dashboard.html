@@ -3,110 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard</title>
+  <title>Dashboard - Subdomain Manager</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
   <div class="container mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">Your Subdomains</h1>
-      <a href="/logout" class="text-sm bg-red-500 hover:bg-red-600 px-3 py-1 rounded">Logout</a>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">Welcome, {{ user }}</h1>
+      <a href="/logout" class="text-sm bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Logout</a>
     </div>
 
-    {% if records %}
-    <div class="grid gap-4 md:grid-cols-2">
-      {% for record in records %}
-      <div class="bg-gray-800 p-4 rounded-lg shadow">
-        <div class="flex justify-between">
-          <h2 class="text-lg font-semibold">{{ record.name }}</h2>
+    <div class="bg-gray-800 p-6 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-4">Your Subdomains</h2>
+
+      {% if records %}
+        <div class="space-y-6">
+          {% for r in records %}
+            <form class="bg-gray-700 p-4 rounded space-y-3" onsubmit="return updateRecord(event, '{{ r.name }}')">
+              <input type="hidden" name="old_name" value="{{ r.name }}">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm mb-1">Subdomain</label>
+                  <input name="name" class="w-full p-2 rounded bg-gray-800 border border-gray-600" value="{{ r.name }}" required>
+                </div>
+                <div>
+                  <label class="block text-sm mb-1">Content / IP</label>
+                  <input name="content" class="w-full p-2 rounded bg-gray-800 border border-gray-600" value="{{ r.content }}" required>
+                </div>
+                <div>
+                  <label class="block text-sm mb-1">Type</label>
+                  <select name="type" class="w-full p-2 rounded bg-gray-800 border border-gray-600">
+                    <option value="A" {% if r.type == 'A' %}selected{% endif %}>A</option>
+                    <option value="CNAME" {% if r.type == 'CNAME' %}selected{% endif %}>CNAME</option>
+                    <option value="TXT" {% if r.type == 'TXT' %}selected{% endif %}>TXT</option>
+                  </select>
+                </div>
+                <div class="flex items-center">
+                  <input type="checkbox" name="proxied" value="true" class="mr-2" {% if r.proxied %}checked{% endif %}>
+                  <label>Use Proxy</label>
+                </div>
+              </div>
+              <div class="mt-4 text-right">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-semibold">Save</button>
+              </div>
+            </form>
+          {% endfor %}
         </div>
-        <p class="text-sm text-gray-400">Type: {{ record.type }}</p>
-        <p class="text-sm text-gray-400">Content: {{ record.content }}</p>
-        <p class="text-sm text-gray-400">Proxy: {{ record.proxied }}</p>
-
-        <button onclick="editRecord('{{ record.name }}')"
-                class="mt-3 bg-blue-500 hover:bg-blue-600 px-3 py-1 text-sm rounded">Edit</button>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-gray-400">No subdomains found for <code>{{ user }}</code>.</p>
-    {% endif %}
-  </div>
-
-  <!-- Modal -->
-  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center hidden">
-    <div class="bg-white text-black rounded-lg shadow-lg p-6 w-full max-w-md">
-      <h2 class="text-xl font-bold mb-4">Edit Subdomain</h2>
-      <form id="editForm">
-        <input type="hidden" name="old_name" id="old_name">
-
-        <label class="block text-sm font-medium">Name</label>
-        <input type="text" id="name" class="w-full mb-3 border px-3 py-2 rounded">
-
-        <label class="block text-sm font-medium">Content/IP</label>
-        <input type="text" id="content" class="w-full mb-3 border px-3 py-2 rounded">
-
-        <label class="block text-sm font-medium">Type</label>
-        <select id="type" class="w-full mb-3 border px-3 py-2 rounded">
-          <option value="A">A</option>
-          <option value="CNAME">CNAME</option>
-          <option value="TXT">TXT</option>
-        </select>
-
-        <label class="inline-flex items-center">
-          <input type="checkbox" id="proxied" class="mr-2"> Enable Proxy
-        </label>
-
-        <div class="mt-4 flex justify-end">
-          <button type="button" onclick="closeModal()" class="mr-2 px-4 py-2 text-sm bg-gray-300 rounded">Cancel</button>
-          <button type="submit" class="px-4 py-2 text-sm bg-green-500 text-white rounded">Save</button>
-        </div>
-      </form>
+      {% else %}
+        <p class="text-gray-400">No subdomains found.</p>
+      {% endif %}
     </div>
   </div>
 
   <script>
-    function editRecord(name) {
-      fetch('/dashboard')  // reuse page to get data
-        .then(() => {
-          const card = [...document.querySelectorAll(".bg-gray-800")].find(el => el.innerText.includes(name));
-          document.getElementById("old_name").value = name;
-          document.getElementById("name").value = name;
-          document.getElementById("content").value = card.querySelectorAll("p")[1].innerText.replace('Content: ', '').trim();
-          document.getElementById("type").value = card.querySelectorAll("p")[0].innerText.replace('Type: ', '').trim();
-          document.getElementById("proxied").checked = card.querySelectorAll("p")[2].innerText.includes('True');
-          document.getElementById("modal").classList.remove("hidden");
-        });
-    }
-
-    function closeModal() {
-      document.getElementById("modal").classList.add("hidden");
-    }
-
-    document.getElementById("editForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    async function updateRecord(event, oldName) {
+      event.preventDefault();
+      const form = event.target;
       const data = {
-        old_name: document.getElementById("old_name").value,
-        name: document.getElementById("name").value,
-        content: document.getElementById("content").value,
-        type: document.getElementById("type").value,
-        proxied: document.getElementById("proxied").checked,
+        old_name: oldName,
+        name: form.name.value,
+        content: form.content.value,
+        type: form.type.value,
+        proxied: form.proxied.checked
       };
 
-      const res = await fetch("/update_record", {
-        method: "POST",
+      const res = await fetch('/update_record', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
 
       const result = await res.json();
       if (result.success) {
+        alert('Record updated successfully.');
         location.reload();
       } else {
-        alert("Update failed: " + result.message);
+        alert('Failed to update record: ' + result.message);
       }
-    });
+    }
   </script>
 </body>
 </html>
