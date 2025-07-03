@@ -2,11 +2,15 @@ from flask import Flask, render_template, request, jsonify
 import json
 import requests
 import os
+from dotenv import load_dotenv
+
+# Load .env jika ada
+load_dotenv()
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.getenv('7086103182:AAF3btwgLddx25KCmkW0K74WmXWphYPJjZU')
-TELEGRAM_CHAT_ID = os.getenv('6673195444')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def load_zones():
     try:
@@ -33,7 +37,9 @@ def subdomain_exists(zone_id, api_key, email, name):
 
 def send_telegram_message(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[WARN] Telegram credentials not set")
         return
+
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
@@ -41,7 +47,9 @@ def send_telegram_message(text):
         'parse_mode': 'Markdown'
     }
     try:
-        requests.post(url, json=payload)
+        print(f"[INFO] Sending Telegram message → {payload}")
+        response = requests.post(url, json=payload)
+        print(f"[INFO] Telegram response: {response.status_code} {response.text}")
     except Exception as e:
         print(f"[ERROR] Telegram notification failed: {e}")
 
@@ -133,6 +141,11 @@ def create_subdomain():
     except Exception as e:
         print(f"[ERROR] {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/test_telegram')
+def test_telegram():
+    send_telegram_message("🔔 *Test message* from Flask app")
+    return "Test message sent!"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
