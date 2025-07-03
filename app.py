@@ -5,23 +5,22 @@ import os
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.getenv('7086103182:AAF3btwgLddx25KCmkW0K74WmXWphYPJjZU')  # Bot token
-TELEGRAM_CHAT_ID = os.getenv('6673195444')  # Admin chat ID
+TELEGRAM_TOKEN = os.getenv('7086103182:AAF3btwgLddx25KCmkW0K74WmXWphYPJjZU')
+TELEGRAM_CHAT_ID = os.getenv('6673195444')
 
-# === Load Zone Info ===
 def load_zones():
     try:
         with open('zones.json', 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"[ERROR] Gagal load zones.json: {e}")
+        print(f"[ERROR] Failed loading zones.json: {e}")
         return {}
 
-# === Cek apakah subdomain sudah ada ===
-def subdomain_exists(zone_id, api_key, name):
+def subdomain_exists(zone_id, api_key, email, name):
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={name}"
     headers = {
-        'Authorization': f'Bearer {api_key}',
+        'X-Auth-Key': api_key,
+        'X-Auth-Email': email,
         'Content-Type': 'application/json'
     }
     try:
@@ -29,10 +28,9 @@ def subdomain_exists(zone_id, api_key, name):
         data = response.json()
         return data.get('success', False) and len(data.get('result', [])) > 0
     except Exception as e:
-        print(f"[ERROR] Gagal cek subdomain: {e}")
+        print(f"[ERROR] Subdomain check failed: {e}")
         return False
 
-# === Kirim Notif ke Telegram ===
 def send_telegram_message(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         return
@@ -45,9 +43,7 @@ def send_telegram_message(text):
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"[ERROR] Gagal kirim notif Telegram: {e}")
-
-# === ROUTES ===
+        print(f"[ERROR] Telegram notification failed: {e}")
 
 @app.route('/')
 def index():
@@ -65,12 +61,13 @@ def check_subdomain():
 
         zones = load_zones()
         if domain not in zones:
-            return jsonify({'exists': False, 'message': 'Domain tidak ditemukan'}), 400
+            return jsonify({'exists': False, 'message': 'Domain not found'}), 400
 
         zone_id = zones[domain]['zone_id']
         api_key = zones[domain]['api_key']
+        email = zones[domain]['email']
 
-        exists = subdomain_exists(zone_id, api_key, full_subdomain)
+        exists = subdomain_exists(zone_id, api_key, email, full_subdomain)
         return jsonify({'exists': exists})
     except Exception as e:
         return jsonify({'exists': False, 'error': str(e)}), 500
@@ -89,22 +86,22 @@ def create_subdomain():
 
         zones = load_zones()
         if domain not in zones:
-            return jsonify({'success': False, 'message': 'Domain tidak ditemukan'}), 400
+            return jsonify({'success': False, 'message': 'Domain not found'}), 400
 
         zone_id = zones[domain]['zone_id']
         api_key = zones[domain]['api_key']
+        email = zones[domain]['email']
 
-        # Cek eksistensi dulu
-        if subdomain_exists(zone_id, api_key, full_subdomain):
+        if subdomain_exists(zone_id, api_key, email, full_subdomain):
             return jsonify({
                 'success': False,
-                'message': f'Subdomain {full_subdomain} sudah ada di Cloudflare'
+                'message': f'Subdomain {full_subdomain} already exists'
             }), 400
 
-        # Buat subdomain baru
         url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
         headers = {
-            'Authorization': f'Bearer {api_key}',
+            'X-Auth-Key': api_key,
+            'X-Auth-Email': email,
             'Content-Type': 'application/json'
         }
 
@@ -122,10 +119,10 @@ def create_subdomain():
             send_telegram_message(f"✅ *Subdomain Created*\n`{full_subdomain}` → `{content}`\nType: `{record_type}`\nProxy: `{proxied}`")
             return jsonify({
                 'success': True,
-                'message': 'Subdomain berhasil dibuat'
+                'message': 'Subdomain created successfully'
             })
         else:
-            error_msg = 'Unknown error from Cloudflare'
+            error_msg = 'Cloudflare error'
             if cf_result.get('errors'):
                 error_msg = cf_result['errors'][0].get('message', error_msg)
             return jsonify({
