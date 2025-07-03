@@ -1,59 +1,51 @@
-# app.py
-from flask import Flask, render_template, request, jsonify, redirect, session, url_for
+from flask import Flask, render_template, request, jsonify
 import json
 import requests
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")
 
+# Perbaikan: gunakan nama ENV VAR, bukan nilai langsung
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-ZONES_PATH = 'zones.json'
-RECORDS_PATH = 'records.json'
-
 def load_zones():
     try:
-        with open(ZONES_PATH, 'r') as f:
+        with open('zones.json', 'r') as f:
             return json.load(f)
-    except:
+    except Exception as e:
+        print(f"[ERROR] Failed loading zones.json: {e}")
         return {}
 
-def load_records():
+def subdomain_exists(zone_id, api_key, email, name):
+    url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={name}"
+    headers = {
+        'X-Auth-Key': api_key,
+        'X-Auth-Email': email,
+        'Content-Type': 'application/json'
+    }
     try:
-        with open(RECORDS_PATH, 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_records(records):
-    with open(RECORDS_PATH, 'w') as f:
-        json.dump(records, f, indent=2)
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        return data.get('success', False) and len(data.get('result', [])) > 0
+    except Exception as e:
+        print(f"[ERROR] Subdomain check failed: {e}")
+        return False
 
 def send_telegram_message(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        return {'sent': False, 'error': 'Missing token or chat_id'}
-
+        print("[WARN] Telegram token or chat_id not set.")
+        return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
         'text': text,
         'parse_mode': 'Markdown'
     }
-
     try:
-        response = requests.post(url, json=payload)
-        return {
-            'sent': True,
-            'status': response.status_code,
-            'response': response.text
-        }
+        requests.post(url, json=payload)
     except Exception as e:
-        return {'sent': False, 'error': str(e)}
+        print(f"[ERROR] Telegram notification failed: {e}")
 
 @app.route('/')
 def index():
@@ -61,60 +53,32 @@ def index():
     domains = list(zones.keys())
     return render_template('index.html', domains=domains)
 
-@app.route('/login', methods=['POST'])
-def login():
-    content = request.form.get('content')
-    if not content:
-        return redirect(url_for('index'))
+@app.route('/check_subdomain', methods=['POST'])
+def check_subdomain():
+    try:
+        data = request.get_json()
+        subdomain = data['subdomain'].strip().lower()
+        domain = data['domain'].strip().lower()
+        full_subdomain = f"{subdomain}.{domain}"
 
-    records = load_records()
-    owned = [r for r in records if r.get('owner') == content]
-    if owned:
-        session['user'] = content
-        return redirect(url_for('dashboard'))
-    return "Unauthorized", 401
+        zones = load_zones()
+        if domain not in zones:
+            return jsonify({'exists': False, 'message': 'Domain not found'}), 400
 
-@app.route('/dashboard')
-def dashboard():
-    if 'user' not in session:
-        return redirect(url_for('index'))
+        zone_id = zones[domain]['zone_id']
+        api_key = zones[domain]['api_key']
+        email = zones[domain]['email']
 
-    user_ip = session['user']
-    records = load_records()
-    user_records = [r for r in records if r.get('owner') == user_ip]
-    return render_template('dashboard.html', records=user_records, user=user_ip)
-
-@app.route('/update_record', methods=['POST'])
-def update_record():
-    if 'user' not in session:
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-
-    data = request.get_json()
-    records = load_records()
-    found = False
-    for r in records:
-        if r['name'] == data['old_name'] and r['owner'] == session['user']:
-            r['name'] = data['name']
-            r['content'] = data['content']
-            r['type'] = data['type']
-            r['proxied'] = data['proxied']
-            found = True
-            break
-
-    if found:
-        save_records(records)
-        return jsonify({'success': True})
-    return jsonify({'success': False, 'message': 'Record not found'})
-
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('index'))
+        exists = subdomain_exists(zone_id, api_key, email, full_subdomain)
+        return jsonify({'exists': exists})
+    except Exception as e:
+        return jsonify({'exists': False, 'error': str(e)}), 500
 
 @app.route('/create_subdomain', methods=['POST'])
 def create_subdomain():
     try:
         data = request.get_json()
+
         subdomain = data['subdomain'].strip().lower()
         domain = data['domain'].strip().lower()
         record_type = data['type']
@@ -128,7 +92,13 @@ def create_subdomain():
 
         zone_id = zones[domain]['zone_id']
         api_key = zones[domain]['api_key']
-        email = zones[domain].get('email', 'admin@example.com')
+        email = zones[domain]['email']
+
+        if subdomain_exists(zone_id, api_key, email, full_subdomain):
+            return jsonify({
+                'success': False,
+                'message': f'Subdomain {full_subdomain} already exists'
+            }), 400
 
         url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
         headers = {
@@ -148,28 +118,19 @@ def create_subdomain():
         cf_result = response.json()
 
         if cf_result.get('success'):
-            # Save to records.json
-            records = load_records()
-            records.append({
-                'name': full_subdomain,
-                'content': content,
-                'type': record_type,
-                'proxied': proxied,
-                'owner': content
-            })
-            save_records(records)
-
-            # Telegram notif
             send_telegram_message(
                 f"✅ *Subdomain Created*\n`{full_subdomain}` → `{content}`\nType: `{record_type}`\nProxy: `{proxied}`"
             )
-
-            return jsonify({'success': True})
+            return jsonify({'success': True, 'message': 'Subdomain created successfully'})
         else:
-            return jsonify({'success': False, 'message': 'Cloudflare error'}), 400
+            error_msg = 'Cloudflare error'
+            if cf_result.get('errors'):
+                error_msg = cf_result['errors'][0].get('message', error_msg)
+            return jsonify({'success': False, 'message': error_msg}), 400
 
     except Exception as e:
+        print(f"[ERROR] {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
