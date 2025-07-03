@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
+# Load environment variable
 load_dotenv()
 
 app = Flask(__name__)
@@ -15,6 +16,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 ZONES_FILE = 'zones.json'
 DB_FILE = 'database.json'
 
+# Load daftar zone/domain dari file
 def load_zones():
     try:
         with open(ZONES_FILE, 'r') as f:
@@ -23,6 +25,7 @@ def load_zones():
         print(f"[ERROR] Failed loading zones.json: {e}")
         return {}
 
+# Cek apakah subdomain sudah ada di Cloudflare
 def subdomain_exists(zone_id, api_key, email, name):
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={name}"
     headers = {
@@ -38,21 +41,36 @@ def subdomain_exists(zone_id, api_key, email, name):
         print(f"[ERROR] Subdomain check failed: {e}")
         return False
 
+# Kirim notifikasi ke Telegram
 def send_telegram_message(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[WARN] Telegram token or chat ID is not set.")
+        print("[WARN] TELEGRAM_TOKEN atau TELEGRAM_CHAT_ID belum diset di .env")
         return
+
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
         'text': text,
-        'parse_mode': 'Markdown'
+        'parse_mode': 'Markdown'  # Bisa ganti ke 'MarkdownV2' kalau perlu
     }
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"[ERROR] Telegram notification failed: {e}")
 
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        if not result.get('ok'):
+            print("[ERROR] Telegram API gagal:")
+            print("→ Status:", response.status_code)
+            print("→ Response:", json.dumps(result, indent=2))
+        else:
+            print("[INFO] Notifikasi Telegram berhasil terkirim.")
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Koneksi ke Telegram gagal: {e}")
+    except Exception as e:
+        print(f"[ERROR] Kesalahan tidak terduga saat kirim Telegram: {e}")
+
+# Load database lokal
 def load_db():
     try:
         if not os.path.exists(DB_FILE):
@@ -63,6 +81,7 @@ def load_db():
         print(f"[ERROR] Load DB failed: {e}")
         return []
 
+# Simpan ke database
 def save_to_db(entry):
     try:
         data = load_db()
@@ -72,12 +91,14 @@ def save_to_db(entry):
     except Exception as e:
         print(f"[ERROR] Save DB failed: {e}")
 
+# Halaman utama
 @app.route('/')
 def index():
     zones = load_zones()
     domains = list(zones.keys())
     return render_template('index.html', domains=domains)
 
+# API: Cek ketersediaan subdomain
 @app.route('/check_subdomain', methods=['POST'])
 def check_subdomain():
     try:
@@ -99,6 +120,7 @@ def check_subdomain():
     except Exception as e:
         return jsonify({'exists': False, 'error': str(e)}), 500
 
+# API: Buat subdomain baru
 @app.route('/create_subdomain', methods=['POST'])
 def create_subdomain():
     try:
@@ -143,7 +165,7 @@ def create_subdomain():
         cf_result = response.json()
 
         if cf_result.get('success'):
-            # Simpan ke database.json
+            # Simpan ke database lokal
             save_to_db({
                 'subdomain': full_subdomain,
                 'type': record_type,
@@ -152,9 +174,9 @@ def create_subdomain():
                 'created_at': datetime.utcnow().isoformat() + 'Z'
             })
 
-            # Kirim notifikasi
+            # Kirim notifikasi ke Telegram
             send_telegram_message(
-                f"✅ *Subdomain Created*\n`{full_subdomain}` → `{content}`\nType: `{record_type}`\nProxy: `{proxied}`"
+                f"✅ *Subdomain Created*\n`{full_subdomain}`\n`{content}`\n`{record_type}`\n`{proxied}`"
             )
 
             return jsonify({'success': True, 'message': 'Subdomain created successfully'})
@@ -168,5 +190,8 @@ def create_subdomain():
         print(f"[ERROR] {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# Start app
 if __name__ == '__main__':
+    print("[INFO] Flask server running...")
+    send_telegram_message("🚀 Flask server sudah aktif dan siap melayani! 👨‍💻")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
