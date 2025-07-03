@@ -1,7 +1,8 @@
 {
   "lys.my.id": {
     "zone_id": "9623704871f538cd432b0ec1dd2c88ac",
-    "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4"
+    "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4",
+    "email": "ryhardev@gmail.com"
   },
   "example.com": {
     "zone_id": "example-zone-id",
