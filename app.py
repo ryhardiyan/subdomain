@@ -176,7 +176,7 @@ def create_subdomain():
 
             # Kirim notifikasi ke Telegram
             send_telegram_message(
-                f"✅ *Subdomain Created*\n`{full_subdomain}`\n`{content}`\n`{record_type}`\n`{proxied}`"
+                f"✅ *Subdomain Created*\n\n`{full_subdomain}`\n`{content}`\n`{record_type}`\n`{proxied}`"
             )
 
             return jsonify({'success': True, 'message': 'Subdomain created successfully'})
