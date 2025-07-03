@@ -5,8 +5,8 @@ import os
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')  # Bot token
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')  # Admin chat ID
+TELEGRAM_TOKEN = os.getenv('7086103182:AAF3btwgLddx25KCmkW0K74WmXWphYPJjZU')  # Bot token
+TELEGRAM_CHAT_ID = os.getenv('6673195444')  # Admin chat ID
 
 # === Load Zone Info ===
 def load_zones():
