@@ -2,16 +2,22 @@ from flask import Flask, render_template, request, jsonify
 import json
 import requests
 import os
+from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# Perbaikan: gunakan nama ENV VAR, bukan nilai langsung
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
+ZONES_FILE = 'zones.json'
+DB_FILE = 'database.json'
+
 def load_zones():
     try:
-        with open('zones.json', 'r') as f:
+        with open(ZONES_FILE, 'r') as f:
             return json.load(f)
     except Exception as e:
         print(f"[ERROR] Failed loading zones.json: {e}")
@@ -34,7 +40,7 @@ def subdomain_exists(zone_id, api_key, email, name):
 
 def send_telegram_message(text):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[WARN] Telegram token or chat_id not set.")
+        print("[WARN] Telegram token or chat ID is not set.")
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -46,6 +52,25 @@ def send_telegram_message(text):
         requests.post(url, json=payload)
     except Exception as e:
         print(f"[ERROR] Telegram notification failed: {e}")
+
+def load_db():
+    try:
+        if not os.path.exists(DB_FILE):
+            return []
+        with open(DB_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Load DB failed: {e}")
+        return []
+
+def save_to_db(entry):
+    try:
+        data = load_db()
+        data.append(entry)
+        with open(DB_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"[ERROR] Save DB failed: {e}")
 
 @app.route('/')
 def index():
@@ -118,9 +143,20 @@ def create_subdomain():
         cf_result = response.json()
 
         if cf_result.get('success'):
+            # Simpan ke database.json
+            save_to_db({
+                'subdomain': full_subdomain,
+                'type': record_type,
+                'content': content,
+                'proxied': proxied,
+                'created_at': datetime.utcnow().isoformat() + 'Z'
+            })
+
+            # Kirim notifikasi
             send_telegram_message(
                 f"✅ *Subdomain Created*\n`{full_subdomain}` → `{content}`\nType: `{record_type}`\nProxy: `{proxied}`"
             )
+
             return jsonify({'success': True, 'message': 'Subdomain created successfully'})
         else:
             error_msg = 'Cloudflare error'
