@@ -4,7 +4,7 @@ import requests
 import os
 from dotenv import load_dotenv
 
-# Load .env jika ada
+# Load .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -36,8 +36,12 @@ def subdomain_exists(zone_id, api_key, email, name):
         return False
 
 def send_telegram_message(text):
+    print('[DEBUG] Preparing Telegram message...')
+    print('TOKEN:', TELEGRAM_TOKEN)
+    print('CHAT_ID:', TELEGRAM_CHAT_ID)
+
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[WARN] Telegram credentials not set")
+        print("[WARN] Missing Telegram credentials!")
         return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
