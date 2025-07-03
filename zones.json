@@ -4,8 +4,9 @@
     "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4",
     "email": "ryhardev@gmail.com"
   },
-  "example.com": {
-    "zone_id": "example-zone-id",
-    "api_key": "example-api-key"
+  "projectechnology.my.id": {
+    "zone_id": "9999835a575e0624404312774726578e",
+    "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4",
+    "email": "ryhardev@gmail.com"
   }
 }
