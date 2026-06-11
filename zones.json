@@ -1,12 +1,6 @@
 {
-  "lys.my.id": {
-    "zone_id": "9623704871f538cd432b0ec1dd2c88ac",
-    "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4",
-    "email": "ryhardev@gmail.com"
-  },
-  "projectechnology.my.id": {
-    "zone_id": "9999835a575e0624404312774726578e",
-    "api_key": "ed1d9bf83426179f6e9402c5cadf06546f6c4",
+  "ryhar.dev": {
+    "zone_id": "92bc370907e0c79de87ff397bd883e0d",
+    "api_key": "bbecf3e47debf2d864471dd9729ad73d",
     "email": "ryhardev@gmail.com"
   }
-}
