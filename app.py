@@ -26,11 +26,10 @@ def load_zones():
         return {}
 
 # Cek apakah subdomain sudah ada di Cloudflare
-def subdomain_exists(zone_id, api_key, email, name):
+def subdomain_exists(zone_id, api_key, name):
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={name}"
     headers = {
-        'X-Auth-Key': api_key,
-        'X-Auth-Email': email,
+        'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
     }
     try:
@@ -48,27 +47,17 @@ def send_telegram_message(text):
         return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
         'text': text,
-        'parse_mode': 'Markdown'  # Bisa ganti ke 'MarkdownV2' kalau perlu
+        'parse_mode': 'Markdown'
     }
 
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
-        result = response.json()
-        if not result.get('ok'):
-            print("[ERROR] Telegram API gagal:")
-            print("→ Status:", response.status_code)
-            print("→ Response:", json.dumps(result, indent=2))
-        else:
-            print("[INFO] Notifikasi Telegram berhasil terkirim.")
-    except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Koneksi ke Telegram gagal: {e}")
     except Exception as e:
-        print(f"[ERROR] Kesalahan tidak terduga saat kirim Telegram: {e}")
+        print(f"[ERROR] Kesalahan saat kirim Telegram: {e}")
 
 # Load database lokal
 def load_db():
@@ -113,9 +102,8 @@ def check_subdomain():
 
         zone_id = zones[domain]['zone_id']
         api_key = zones[domain]['api_key']
-        email = zones[domain]['email']
 
-        exists = subdomain_exists(zone_id, api_key, email, full_subdomain)
+        exists = subdomain_exists(zone_id, api_key, full_subdomain)
         return jsonify({'exists': exists})
     except Exception as e:
         return jsonify({'exists': False, 'error': str(e)}), 500
@@ -139,9 +127,8 @@ def create_subdomain():
 
         zone_id = zones[domain]['zone_id']
         api_key = zones[domain]['api_key']
-        email = zones[domain]['email']
 
-        if subdomain_exists(zone_id, api_key, email, full_subdomain):
+        if subdomain_exists(zone_id, api_key, full_subdomain):
             return jsonify({
                 'success': False,
                 'message': f'Subdomain {full_subdomain} already exists'
@@ -149,8 +136,7 @@ def create_subdomain():
 
         url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
         headers = {
-            'X-Auth-Key': api_key,
-            'X-Auth-Email': email,
+            'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
         }
 
@@ -176,7 +162,7 @@ def create_subdomain():
 
             # Kirim notifikasi ke Telegram
             send_telegram_message(
-                f"✅ *Subdomain Created*\n\n`{full_subdomain}`\n`{content}`\n`{record_type}`\n`{proxied}`"
+                f"✅ *Subdomain Created*\n\n`{full_subdomain}`\n`{content}`\n`{record_type}`\n`Proxied: {proxied}`"
             )
 
             return jsonify({'success': True, 'message': 'Subdomain created successfully'})
@@ -184,13 +170,18 @@ def create_subdomain():
             error_msg = 'Cloudflare error'
             if cf_result.get('errors'):
                 error_msg = cf_result['errors'][0].get('message', error_msg)
-            return jsonify({'success': False, 'message': error_msg}), 400
+            
+            # FITUR DEBUGGING: Cetak error asli ke terminal biar kelihatan salahnya apa
+            print("\n=== CLOUDFLARE API ERROR DETAILS ===")
+            print(json.dumps(cf_result, indent=2))
+            print("=====================================\n")
+
+            return jsonify({'success': False, 'message': f"{error_msg} (status: {response.status_code})"}), 400
 
     except Exception as e:
         print(f"[ERROR] {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
-# Start app
 if __name__ == '__main__':
     print("[INFO] Flask server running...")
     send_telegram_message("🚀 Flask server sudah aktif dan siap melayani! 👨‍💻")
