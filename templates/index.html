@@ -3,66 +3,144 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create Subdomain</title>
+  <title>CloudZone — Subdomain Manager</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen flex items-center justify-center p-4">
-  <div class="w-full max-w-xl bg-gray-900 rounded-xl shadow-lg p-6 md:p-10">
-    <h1 class="text-3xl md:text-4xl font-bold text-center mb-6">🌐 Create Your Subdomain</h1>
+<body class="bg-gradient-to-tr from-gray-950 via-gray-900 to-indigo-950 text-gray-100 min-h-screen flex items-center justify-center p-4 md:p-8">
+
+  <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
+  <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
+
+  <div class="w-full max-w-xl glass-card rounded-2xl shadow-2xl p-6 md:p-8 relative z-10">
+    
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg mb-4">
+        <i class="fa-solid fa-globe text-2xl text-white"></i>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400">
+        Create Your Subdomain
+      </h1>
+      <p class="text-sm text-gray-400 mt-1">Deploy your next project with a custom short domain</p>
+    </div>
 
     <form id="subdomainForm" class="space-y-5">
+      
       <div>
-        <label class="block text-sm font-medium mb-1">Subdomain</label>
-        <input type="text" id="subdomain" class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 ring-blue-500" required placeholder="yourname"/>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Configure Address</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-500">
+              <i class="fa-solid fa-link text-sm"></i>
+            </span>
+            <input type="text" id="subdomain" class="w-full pl-10 pr-4 py-3 bg-gray-800/80 border border-gray-700/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition" required placeholder="yourname"/>
+          </div>
+          
+          <div class="sm:w-2/5">
+            <select id="domain" class="w-full px-4 py-3 bg-gray-800/80 border border-gray-700/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition cursor-pointer" required>
+              <option value="">Select Domain</option>
+              {% for domain in domains %}
+                <option value="{{ domain }}">{{ domain }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div id="warn-box-container"></div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-1">Domain</label>
-        <select id="domain" class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 ring-blue-500" required>
-          <option value="">Select Domain</option>
-          {% for domain in domains %}
-            <option value="{{ domain }}">{{ domain }}</option>
-          {% endfor %}
-        </select>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Record Type</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="border border-gray-700 bg-gray-800/40 rounded-xl p-3 flex items-center justify-center cursor-pointer hover:bg-gray-800 transition">
+            <input type="radio" name="type_selector" value="A" checked class="hidden">
+            <span class="text-sm font-medium text-gray-300">A (IP Address)</span>
+          </label>
+          <label class="border border-gray-700 bg-gray-800/40 rounded-xl p-3 flex items-center justify-center cursor-pointer hover:bg-gray-800 transition">
+            <input type="radio" name="type_selector" value="CNAME" class="hidden">
+            <span class="text-sm font-medium text-gray-300">CNAME (Domain)</span>
+          </label>
+          <label class="border border-gray-700 bg-gray-800/40 rounded-xl p-3 flex items-center justify-center cursor-pointer hover:bg-gray-800 transition">
+            <input type="radio" name="type_selector" value="TXT" class="hidden">
+            <span class="text-sm font-medium text-gray-300">TXT</span>
+          </label>
+        </div>
+        <input type="hidden" id="type" value="A">
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-1">Record Type</label>
-        <select id="type" class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 ring-blue-500" required>
-          <option value="A">A</option>
-          <option value="CNAME">CNAME</option>
-          <option value="TXT">TXT</option>
-        </select>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Content / Target Destination</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-gray-500">
+            <i class="fa-solid fa-server text-sm"></i>
+          </span>
+          <input type="text" id="content" class="w-full pl-10 pr-4 py-3 bg-gray-800/80 border border-gray-700/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition" required placeholder="e.g. 74.125.19.147 or name.vercel.app"/>
+        </div>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium mb-1">Content / IP</label>
-        <input type="text" id="content" class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 ring-blue-500" required/>
+      <div class="bg-gray-800/30 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <span class="text-orange-400 text-lg flex items-center justify-center bg-orange-500/10 w-9 h-9 rounded-lg">
+            <i class="fa-solid fa-cloud"></i>
+          </span>
+          <div>
+            <p class="text-sm font-medium text-gray-200">Cloudflare Proxy</p>
+            <p class="text-xs text-gray-400">Protects & hides original IP server</p>
+          </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="proxied" class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+        </label>
       </div>
 
-      <div class="flex items-center space-x-2">
-        <input type="checkbox" id="proxied" class="form-checkbox text-blue-500 bg-gray-700 border-gray-600"/>
-        <label for="proxied">Enable Cloudflare Proxy</label>
-      </div>
-
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 transition px-4 py-3 rounded-lg text-white font-semibold">
-        🚀 Create Subdomain
+      <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 transition px-4 py-3.5 rounded-xl text-white font-semibold text-sm shadow-lg flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-rocket"></i>
+        <span>Create Subdomain</span>
       </button>
     </form>
 
-    <div id="result-container" class="mt-6"></div>
+    <div id="result-container" class="mt-5"></div>
 
-    <p class="mt-8 text-center text-sm text-gray-400">
-      Made with ❤️ by <strong class="text-blue-400">Rahardiyan</strong>
+    <p class="mt-8 text-center text-xs text-gray-500">
+      Made with <i class="fa-solid fa-heart text-red-500 mx-0.5"></i> by <span class="text-gray-300 font-medium">Rahardiyan</span>
     </p>
   </div>
 
   <script>
     const subdomainInput = document.getElementById('subdomain');
     const domainSelect = document.getElementById('domain');
-    const submitBtn = document.querySelector('form button[type="submit"]');
+    const submitBtn = document.getElementById('submitBtn');
+    const typeInput = document.getElementById('type');
+    const typeRadios = document.querySelectorAll('input[name="type_selector"]');
+    const contentInput = document.getElementById('content');
 
     let debounceTimer;
+
+    // Handle Custom Tabs Selector Style
+    typeRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        typeRadios.forEach(r => r.parentElement.classList.remove('border-blue-500', 'bg-blue-500/10'));
+        if (e.target.checked) {
+          e.target.parentElement.classList.add('border-blue-500', 'bg-blue-500/10');
+          typeInput.value = e.target.value;
+          
+          // Placeholder Hint Helper
+          if(e.target.value === "A") contentInput.placeholder = "e.g. 192.168.1.1 (Must be IPv4 Address)";
+          else if(e.target.value === "CNAME") contentInput.placeholder = "e.g. tracking.vercel-dns.com (Must be Domain)";
+        }
+      });
+    });
+    document.querySelector('input[name="type_selector"]:checked').parentElement.classList.add('border-blue-500', 'bg-blue-500/10');
 
     subdomainInput.addEventListener('input', () => {
       clearTimeout(debounceTimer);
@@ -75,6 +153,8 @@
       const dom = domainSelect.value;
       if (!sub || !dom) return;
 
+      const container = document.getElementById('warn-box-container');
+      
       const response = await fetch('/check_subdomain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,52 +162,69 @@
       });
 
       const data = await response.json();
-      let warnBox = document.getElementById('warn-box');
-      if (!warnBox) {
-        warnBox = document.createElement('div');
-        warnBox.id = 'warn-box';
-        warnBox.className = 'mt-2 text-sm';
-        subdomainInput.parentNode.appendChild(warnBox);
-      }
 
       if (data.exists) {
-        warnBox.textContent = '❌ Subdomain already exists';
-        warnBox.classList.add('text-red-400');
-        warnBox.classList.remove('text-green-400');
+        container.innerHTML = `<p class="mt-2 text-xs text-red-400 flex items-center gap-1"><i class="fa-solid fa-circle-xmark"></i> Subdomain already taken</p>`;
         submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
       } else {
-        warnBox.textContent = '✅ Subdomain available';
-        warnBox.classList.add('text-green-400');
-        warnBox.classList.remove('text-red-400');
+        container.innerHTML = `<p class="mt-2 text-xs text-emerald-400 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Subdomain is available</p>`;
         submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
       }
     }
 
     document.getElementById('subdomainForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      submitBtn.disabled = true;
+      const originalBtnContent = submitBtn.innerHTML;
+      submitBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> <span>Processing...</span>`;
+
       const data = {
         subdomain: subdomainInput.value,
         domain: domainSelect.value,
-        type: document.getElementById('type').value,
-        content: document.getElementById('content').value,
+        type: typeInput.value,
+        content: contentInput.value,
         proxied: document.getElementById('proxied').checked
       };
 
-      const response = await fetch('/create_subdomain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      try {
+        const response = await fetch('/create_subdomain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-      const result = await response.json();
-      const resultContainer = document.getElementById('result-container');
+        const result = await response.json();
+        const resultContainer = document.getElementById('result-container');
 
-      if (result.success) {
-        resultContainer.innerHTML = `<div class='mt-4 p-4 bg-green-600 rounded-lg'>✅ Subdomain created successfully!</div>`;
-        document.getElementById('subdomainForm').reset();
+        if (result.success) {
+          resultContainer.innerHTML = `
+            <div class='p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-3'>
+              <span class="text-emerald-400 mt-0.5"><i class="fa-solid fa-circle-check text-lg"></i></span>
+              <div>
+                <h4 class="text-sm font-semibold text-emerald-400">Success!</h4>
+                <p class="text-xs text-gray-300 mt-0.5">Subdomain has been mapped successfully to Cloudflare.</p>
+              </div>
+            </div>`;
+          document.getElementById('subdomainForm').reset();
+          document.getElementById('warn-box-container').innerHTML = '';
+        } else {
+          resultContainer.innerHTML = `
+            <div class='p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-start gap-3'>
+              <span class="text-rose-400 mt-0.5"><i class="fa-solid fa-circle-exclamation text-lg"></i></span>
+              <div>
+                <h4 class="text-sm font-semibold text-rose-400">Failed Operation</h4>
+                <p class="text-xs text-gray-300 mt-0.5">${result.message}</p>
+              </div>
+            </div>`;
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
         submitBtn.disabled = false;
-      } else {
-        resultContainer.innerHTML = `<div class='mt-4 p-4 bg-red-600 rounded-lg'>❌ ${result.message}</div>`;
+        submitBtn.innerHTML = originalBtnContent;
       }
     });
   </script>
